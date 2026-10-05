@@ -14,7 +14,7 @@
 # itself whether hooks ended up disabled. If a codex release renames or drops
 # the feature, the flag becomes a hard "Unknown feature flag" error and this
 # guard fails naming the harness and version instead of letting the modal
-# silently come back.
+# silently come back. It also refuses the combined approval and sandbox bypass.
 #
 # It spends no model tokens (`codex features list` resolves configuration only),
 # so it runs by default wherever codex is installed.
@@ -64,6 +64,11 @@ test_installed_codex_disables_hooks_for_the_captured_crewmate_launch() {
   local launch flags state
   launch=$(capture_codex_launch ship --mode no-mistakes --yolo off)
   flags=$(codex_global_flags "$launch")
+  case "$flags" in
+    *--dangerously-bypass-approvals-and-sandbox*)
+      fail "codex $CODEX_VERSION: firstmate's crewmate launch bypasses Codex's managed approval or sandbox policy: $flags"
+      ;;
+  esac
 
   # The whole point: every flag firstmate will launch with, handed to the real
   # codex, must leave the hook layer off. `features list` reports the effective

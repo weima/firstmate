@@ -676,7 +676,7 @@ Error: Unknown feature flag: no_such_feature
 
 The last arm is what makes the control safe to depend on: an unknown feature name is a hard error, so a release that renames or drops the flag fails the launch loudly instead of silently restoring the modal.
 
-The same launch with the hook layer disabled reached the composer with no modal, answered the prompt, and fired the turn-end program that rides the launch rather than any hook:
+An interactive probe on 2026-09-16 with the hook layer disabled reached the composer with no modal, answered the prompt, and fired the turn-end program that rides the launch rather than any hook:
 
 ```sh
 codex --dangerously-bypass-approvals-and-sandbox --disable hooks \
@@ -688,6 +688,22 @@ codex --dangerously-bypass-approvals-and-sandbox --disable hooks \
 - ACK, captain.
 $ ls "$TURNEND"
 <turn-end file present>
+```
+
+Current `bin/fm-spawn.sh` launches leave Codex's managed approval and sandbox policy in force instead of passing `--dangerously-bypass-approvals-and-sandbox`.
+Verified 2026-10-05 on codex-cli 0.160.0 with the installed-CLI guard, which captures the launch from `fm-spawn.sh`, rejects that combined bypass, and replays the remaining flags:
+
+```sh
+bin/fm-test-run.sh tests/fm-codex-hook-layer-live-e2e.test.sh
+```
+
+Observed output:
+
+```text
+ok - codex codex-cli 0.160.0 still publishes the hook feature flag firstmate disables
+ok - codex codex-cli 0.160.0 runs a firstmate crewmate launch with its hook layer disabled
+# all fm-codex-hook-layer-live-e2e tests passed
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=4067
 ```
 
 `tests/fm-codex-hook-layer-live-e2e.test.sh` is the command that refreshes this record.
