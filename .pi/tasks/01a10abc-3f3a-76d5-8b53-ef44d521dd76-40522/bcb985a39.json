@@ -1,0 +1,29 @@
+{
+  "id": "bcb985a39",
+  "name": "Brief regression suite",
+  "command": "bash tests/fm-brief.test.sh",
+  "description": "Run the existing fm-brief scaffold regression suite after adding the Odin entry point.",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a10abc-3f3a-76d5-8b53-ef44d521dd76-40522/bcb985a39.output",
+  "cwd": "/Users/weima/work/firstmate",
+  "startTime": 1791181807361,
+  "endTime": 1791181817034,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 76898,
+  "bytesWritten": 3419,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/bin/zsh",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "posix"
+  }
+}
