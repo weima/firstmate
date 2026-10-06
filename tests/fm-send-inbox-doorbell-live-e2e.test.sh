@@ -79,13 +79,11 @@ harness_version() {  # <binary>
   "$1" --version 2>/dev/null | head -1 || printf 'version-unknown'
 }
 
-# Launch <name> idle with its unattended-autonomy flags (the same posture
-# bin/fm-spawn.sh uses), so the doorbell-triggered shell actions need no
-# interactive approval.
+# Launch <name> with the same approval and sandbox posture as bin/fm-spawn.sh.
 launch_cmd() {  # <name>
   case "$1" in
     claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '\''{"feedbackDrafts":"off"}'\''' ;;
-    codex) printf '%s' 'codex --dangerously-bypass-approvals-and-sandbox' ;;
+    codex) printf '%s' 'codex --disable hooks' ;;
     opencode) printf '%s' "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"}}' opencode" ;;
     pi|pi-signed) printf '%s' "$1" ;;
     grok) printf '%s' 'grok --always-approve' ;;

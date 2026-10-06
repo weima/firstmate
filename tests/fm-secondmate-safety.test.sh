@@ -21,6 +21,84 @@ file_mode() {
   fi
 }
 
+test_odin_secondmate_parent_parity() {
+  local binary="$TMP_ROOT/fm-secondmate-parent-odin" records="$TMP_ROOT/odin-parent-records"
+  local name path shell_out odin_out shell_rc odin_rc
+  if ! command -v odin >/dev/null 2>&1; then
+    [ "${FM_ODIN_REQUIRED:-0}" != 1 ] || fail "FM_ODIN_REQUIRED=1 but Odin is unavailable"
+    echo "skip - Odin is unavailable for secondmate parent parser parity"
+    return 0
+  fi
+  odin build "$ROOT/src/odin/fm-secondmate-parent.odin" -file "-out:$binary" >/dev/null \
+    || fail "Odin secondmate parent parser did not build"
+  mkdir -p "$records"
+  cat > "$records/local.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+route=local
+parent_home=/tmp/parent home
+unknown=preserved for forwards compatibility
+EOF
+  cat > "$records/remote.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+route=remote
+parent_host=old-route
+parent_host=current-route
+EOF
+  cat > "$records/local-relative.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+route=local
+parent_home=relative/path
+EOF
+  cat > "$records/local-host.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+route=local
+parent_home=/tmp/parent
+parent_host=unexpected
+EOF
+  cat > "$records/remote-home.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+route=remote
+parent_home=/tmp/parent
+EOF
+  cat > "$records/duplicate-schema.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+schema=fm-secondmate-parent.v1
+route=remote
+EOF
+  cat > "$records/duplicate-route.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+route=remote
+route=remote
+EOF
+  cat > "$records/duplicate-home.msg" <<'EOF'
+schema=fm-secondmate-parent.v1
+route=local
+parent_home=/tmp/parent
+parent_home=/tmp/parent
+EOF
+  printf 'schema=fm-secondmate-parent.v1\nroute=remote\0' > "$records/nul.msg"
+  ln -s "$records/local.msg" "$records/symlink.msg"
+
+  for name in local.msg remote.msg local-relative.msg local-host.msg remote-home.msg duplicate-schema.msg duplicate-route.msg duplicate-home.msg nul.msg symlink.msg missing.msg; do
+    path="$records/$name"
+    shell_out=$(bash -c '
+      . "$1"
+      if fm_secondmate_parent_record_parse "$2"; then
+        printf "route=%s\nparent_home=%s\nparent_host=%s\n" \
+          "$FM_SECONDMATE_PARENT_ROUTE" "$FM_SECONDMATE_PARENT_HOME" "$FM_SECONDMATE_PARENT_HOST"
+      else
+        exit 1
+      fi
+    ' _ "$ROOT/bin/fm-secondmate-parent-lib.sh" "$path")
+    shell_rc=$?
+    odin_out=$("$binary" "$path" 2>/dev/null)
+    odin_rc=$?
+    [ "$shell_rc" -eq "$odin_rc" ] || fail "$name: shell and Odin validity results differ ($shell_rc vs $odin_rc)"
+    [ "$shell_out" = "$odin_out" ] || fail "$name: shell and Odin parsed fields differ"
+  done
+  pass "Odin secondmate parent parser matches the shell helper"
+}
+
 install_fake_process_event_sweep() {
   local home=$1 log=$2
   mkdir -p "$home/bin"
@@ -3022,6 +3100,7 @@ EOF
   pass "fm-backlog-handoff refuses Done items under whitespace section headings and unsafe homes"
 }
 
+test_odin_secondmate_parent_parity
 test_fm_home_parameterization
 test_lock_status_is_per_home
 test_seed_allows_overlapping_clones_and_drops_owner
