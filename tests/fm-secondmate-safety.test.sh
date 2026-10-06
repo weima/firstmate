@@ -99,6 +99,114 @@ EOF
   pass "Odin secondmate parent parser matches the shell helper"
 }
 
+fm_test_odin_brief_heading_case() {
+  local binary=$1 fixtures=$2 name=$3 file=$4 heading=$5 mode=$6 shell_rc odin_rc
+  if bash -c '
+    . "$1/bin/fm-brief-heading-lib.sh"
+    case "$3" in
+      body) fm_brief_heading_body "$2" "$4" ;;
+      present) fm_brief_heading_present "$2" "$4" ;;
+      task-body) fm_brief_task_heading_body "$2" "$4" ;;
+      task-present) fm_brief_task_heading_present "$2" "$4" ;;
+    esac
+  ' _ "$ROOT" "$file" "$mode" "$heading" < "$fixtures/brief.md" \
+    > "$fixtures/shell.out" 2> "$fixtures/shell.err"; then
+    shell_rc=0
+  else
+    shell_rc=$?
+  fi
+  if "$binary" "$file" "$heading" "$mode" < "$fixtures/brief.md" \
+    > "$fixtures/odin.out" 2> "$fixtures/odin.err"; then
+    odin_rc=0
+  else
+    odin_rc=$?
+  fi
+  [ "$shell_rc" -eq "$odin_rc" ] \
+    || fail "$name: shell and Odin exit results differ ($shell_rc vs $odin_rc)"
+  cmp -s "$fixtures/shell.out" "$fixtures/odin.out" \
+    || { diff -u "$fixtures/shell.out" "$fixtures/odin.out" || true; fail "$name: shell and Odin output differs"; }
+}
+
+test_odin_brief_heading_parity() {
+  local binary="$TMP_ROOT/fm-brief-heading-odin" fixtures="$TMP_ROOT/odin-brief-heading"
+  if ! command -v odin >/dev/null 2>&1; then
+    [ "${FM_ODIN_REQUIRED:-0}" != 1 ] || fail "FM_ODIN_REQUIRED=1 but Odin is unavailable"
+    echo "skip - Odin is unavailable for brief heading parser parity"
+    return 0
+  fi
+  odin build "$ROOT/src/odin/fm-brief-heading.odin" -file "-out:$binary" >/dev/null \
+    || fail "Odin brief heading parser did not build"
+  mkdir -p "$fixtures"
+  cat > "$fixtures/brief.md" <<'EOF'
+# Intro
+```md
+# Task
+## Ghost
+```
+# Task
+Task body
+## Intent
+Intent body
+~~~md
+## Ghost
+# Still fenced
+EOF
+  printf '%s   \n' '~~~' >> "$fixtures/brief.md"
+  cat >> "$fixtures/brief.md" <<'EOF'
+Deeper content
+### nested heading
+not a boundary
+#not-a-heading
+## Scope
+Scope body
+## Last
+End of the task
+# Firstmate spec
+Outside the task section
+EOF
+  cat > "$fixtures/indented-boundary.md" <<'EOF'
+## Here
+inside
+   ## stop
+outside
+EOF
+  cat > "$fixtures/not-exact.md" <<'EOF'
+  # Task
+EOF
+  printf '# Task \n' >> "$fixtures/not-exact.md"
+  : > "$fixtures/empty.md"
+
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "root body and task boundary" \
+    "$fixtures/brief.md" "# Task" body
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "nested body and fenced headings" \
+    "$fixtures/brief.md" "## Intent" body
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "exact heading presence" \
+    "$fixtures/brief.md" "## Scope" present
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "higher-level ATX boundary" \
+    "$fixtures/brief.md" "## Last" body
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "fenced-only heading absence" \
+    "$fixtures/brief.md" "## Ghost" present
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "task heading body helper" \
+    "$fixtures/brief.md" "## Intent" task-body
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "task heading presence helper" \
+    "$fixtures/brief.md" "## Intent" task-present
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "task helper excludes following top-level section" \
+    "$fixtures/brief.md" "## Firstmate spec" task-present
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "three-space ATX boundary" \
+    "$fixtures/indented-boundary.md" "## Here" body
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "target heading must match exactly" \
+    "$fixtures/not-exact.md" "# Task" present
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "empty input" \
+    "$fixtures/empty.md" "# Task" body
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "missing file body" \
+    "$fixtures/missing.md" "# Task" body
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "missing file presence" \
+    "$fixtures/missing.md" "# Task" present
+  fm_test_odin_brief_heading_case "$binary" "$fixtures" "stdin input" \
+    - "## Intent" task-body
+  pass "Odin brief heading parser matches the shell helpers through its executable"
+}
+
 install_fake_process_event_sweep() {
   local home=$1 log=$2
   mkdir -p "$home/bin"
@@ -3101,6 +3209,7 @@ EOF
 }
 
 test_odin_secondmate_parent_parity
+test_odin_brief_heading_parity
 test_fm_home_parameterization
 test_lock_status_is_per_home
 test_seed_allows_overlapping_clones_and_drops_owner
